@@ -1,0 +1,17 @@
+# Fichiers compilés (lourds et inutiles sur git)
+target/
+project/target/
+project/project/
+
+# Fichiers de l'IDE (VSCode / Metals)
+.bloop/
+.metals/
+.bsp/
+.vscode/
+
+# Fichiers IntelliJ (si le prof l'utilise)
+.idea/
+*.iml
+
+# Fichiers Système Mac
+.DS_Store
