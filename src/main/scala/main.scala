@@ -13,22 +13,17 @@ object Message {
 // --- APPLICATION ---
 object Main extends ZIOAppDefault {
 
-  // Routes HTTP + WebSocket
   def createRoutes(memory: Ref[List[Message]]): Routes[Any, Response] = {
 
-    // --- WebSocket : /ws ---
     val socketApp: WebSocketApp[Any] =
       Handler.webSocket { channel =>
         channel.receiveAll {
-          // Connexion établie
           case UserEventTriggered(UserEvent.HandshakeComplete) =>
             channel.send(Read(WebSocketFrame.text("Connecté au WebSocket /ws ✅")))
 
-          // Message texte reçu
           case Read(WebSocketFrame.Text(text)) =>
             text.fromJson[Message] match {
               case Right(msg) =>
-                // On enregistre le message en mémoire
                 memory.update(_ :+ msg) *>
                   channel.send(Read(WebSocketFrame.text(s"Message enregistré: ${msg.text}")))
 
@@ -36,11 +31,9 @@ object Main extends ZIOAppDefault {
                 channel.send(Read(WebSocketFrame.text(s"JSON invalide: $err")))
             }
 
-          // Fermeture du socket
           case Read(WebSocketFrame.Close(status, reason)) =>
             ZIO.logInfo(s"WebSocket fermé: $status - $reason")
 
-          // Autres événements → on ignore
           case _ =>
             ZIO.unit
         }
