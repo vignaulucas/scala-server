@@ -1,5 +1,6 @@
 import zio._
 import zio.http._
+import zio.http.ChannelEvent.{Read, UserEvent, UserEventTriggered}
 import zio.json._
 
 // --- MODÈLE DE DONNÉES ---
@@ -12,29 +13,64 @@ object Message {
 // --- APPLICATION ---
 object Main extends ZIOAppDefault {
 
-  def createRoutes(memory: Ref[List[Message]]) = Routes(
-    
-    // Route 1 (GET) : Lire les messages
-    Method.GET / "messages" -> handler {
-      memory.get.map { messages =>
-        Response.json(messages.toJson)
-      }
-    },
+  def createRoutes(memory: Ref[List[Message]]): Routes[Any, Response] = {
 
-    // Route 2 (POST) : Ajouter un message
-    Method.POST / "messages" -> handler { (req: Request) =>
-      req.body.asString.flatMap { bodyStr =>
-        bodyStr.fromJson[Message] match {
-          case Left(error) => 
-            ZIO.succeed(Response.text(s"Mauvais JSON: $error").status(Status.BadRequest))
-          
-          case Right(msg) => 
-            memory.update(list => list :+ msg).as(Response.text("Message ajouté !"))
+    val socketApp: WebSocketApp[Any] =
+      Handler.webSocket { channel =>
+        channel.receiveAll {
+          case UserEventTriggered(UserEvent.HandshakeComplete) =>
+            channel.send(Read(WebSocketFrame.text("Connecté au WebSocket /ws ✅")))
+
+          case Read(WebSocketFrame.Text(text)) =>
+            text.fromJson[Message] match {
+              case Right(msg) =>
+                memory.update(_ :+ msg) *>
+                  channel.send(Read(WebSocketFrame.text(s"Message enregistré: ${msg.text}")))
+
+              case Left(err) =>
+                channel.send(Read(WebSocketFrame.text(s"JSON invalide: $err")))
+            }
+
+          case Read(WebSocketFrame.Close(status, reason)) =>
+            ZIO.logInfo(s"WebSocket fermé: $status - $reason")
+
+          case _ =>
+            ZIO.unit
         }
       }
-      .catchAll(e => ZIO.succeed(Response.text("Erreur serveur").status(Status.InternalServerError)))
-    }
-  )
+
+    Routes(
+
+      // --- Route 1 : GET /messages ---
+      Method.GET / "messages" -> handler {
+        memory.get.map { messages =>
+          Response.json(messages.toJson)
+        }
+      },
+
+      // --- Route 2 : POST /messages ---
+      Method.POST / "messages" -> handler { (req: Request) =>
+        req.body.asString.flatMap { bodyStr =>
+          bodyStr.fromJson[Message] match {
+            case Left(error) =>
+              ZIO.succeed(
+                Response.text(s"Mauvais JSON: $error").status(Status.BadRequest)
+              )
+
+            case Right(msg)  =>
+              memory
+                .update(_ :+ msg)
+                .as(Response.text("Message ajouté !").status(Status.Created))
+          }
+        }.catchAll(_ =>
+          ZIO.succeed(Response.text("Erreur serveur").status(Status.InternalServerError))
+        )
+      },
+
+      // --- Route 3 : WebSocket /ws ---
+      Method.GET / "ws" -> handler(socketApp.toResponse)
+    )
+  }
 
   // --- DÉMARRAGE DU SERVEUR ---
   override val run =

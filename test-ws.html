@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebSocket Client</title>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f5f7fa;
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .card {
+      background: white;
+      width: 400px;
+      padding: 20px;
+      border-radius: 14px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 24px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 15px;
+      font-size: 14px;
+      gap: 6px;
+    }
+
+    .status.connected {
+      color: green;
+    }
+
+    .status.disconnected {
+      color: red;
+    }
+
+    .inputRow {
+      display: flex;
+      gap: 8px;
+    }
+
+    input {
+      flex: 1;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+
+    button {
+      padding: 10px 16px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    button:hover {
+      background: #0065d4;
+    }
+
+    .messages {
+      margin-top: 15px;
+      height: 200px;
+      overflow-y: auto;
+      background: #f1f3f5;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 14px;
+    }
+
+    .bubble {
+      background: white;
+      padding: 8px;
+      margin-bottom: 10px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .timestamp {
+      font-size: 11px;
+      color: #777;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h1>WebSocket Client</h1>
+
+    <div id="status" class="status disconnected">
+      ● Déconnecté
+    </div>
+
+    <div class="inputRow">
+      <input id="msgInput" type="text" placeholder="Écrire un message..." />
+      <button id="sendBtn">Envoyer</button>
+    </div>
+
+    <div id="messages" class="messages"></div>
+  </div>
+
+  <script>
+    // Connexion au WebSocket
+    const ws = new WebSocket("ws://localhost:8080/ws");
+
+    const status = document.getElementById("status");
+    const messages = document.getElementById("messages");
+    const input = document.getElementById("msgInput");
+    const sendBtn = document.getElementById("sendBtn");
+
+    function addMessage(text) {
+      const div = document.createElement("div");
+      div.className = "bubble";
+      div.innerHTML = text +
+        `<div class="timestamp">${new Date().toLocaleTimeString()}</div>`;
+      messages.appendChild(div);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    ws.onopen = () => {
+      status.classList.remove("disconnected");
+      status.classList.add("connected");
+      status.textContent = "● Connecté";
+      addMessage("Connexion WebSocket établie !");
+    };
+
+    ws.onmessage = (event) => {
+      addMessage("Serveur : " + event.data);
+    };
+
+    ws.onclose = () => {
+      status.classList.remove("connected");
+      status.classList.add("disconnected");
+      status.textContent = "● Déconnecté";
+    };
+
+    sendBtn.onclick = () => {
+      const text = input.value.trim();
+      if (!text) return;
+      ws.send(JSON.stringify({ text }));
+      addMessage("Moi : " + text);
+      input.value = "";
+    };
+  </script>
+</body>
+</html>
