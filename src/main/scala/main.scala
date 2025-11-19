@@ -2,6 +2,9 @@ import zio._
 import zio.http._
 import zio.http.ChannelEvent.{Read, UserEvent, UserEventTriggered}
 import zio.json._
+import scala.io.Source
+import zio.http.{Body, Headers}
+
 
 // --- MODÈLE DE DONNÉES ---
 case class Message(text: String)
@@ -15,6 +18,7 @@ object Main extends ZIOAppDefault {
 
   def createRoutes(memory: Ref[List[Message]]): Routes[Any, Response] = {
 
+    // --- WebSocket /ws ---
     val socketApp: WebSocketApp[Any] =
       Handler.webSocket { channel =>
         channel.receiveAll {
@@ -68,7 +72,32 @@ object Main extends ZIOAppDefault {
       },
 
       // --- Route 3 : WebSocket /ws ---
-      Method.GET / "ws" -> handler(socketApp.toResponse)
+      Method.GET / "ws" -> handler(socketApp.toResponse),
+
+      // --- Route 4 : /monitor (sert server-monitor.html depuis les resources) ---
+// --- Route 4 : /monitor (sert server-monitor.html depuis resources) ---
+      Method.GET / "monitor" -> handler {
+        ZIO
+          .attempt {
+            val src = scala.io.Source.fromResource("server-monitor.html")(scala.io.Codec.UTF8)
+            try src.mkString
+            finally src.close()
+          }
+          .map { html =>
+            Response(
+              status = Status.Ok,
+              headers = Headers("Content-Type" -> "text/html; charset=utf-8"),
+              body = Body.fromString(html)
+            )
+          }
+          .catchAll { err =>
+            ZIO.succeed(
+              Response
+                .text(s"Erreur chargement monitor: ${err.getMessage}")
+                .status(Status.InternalServerError)
+            )
+          }
+      }
     )
   }
 
