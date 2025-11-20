@@ -75,7 +75,6 @@ object Main extends ZIOAppDefault {
       Method.GET / "ws" -> handler(socketApp.toResponse),
 
       // --- Route 4 : /monitor (sert server-monitor.html depuis les resources) ---
-// --- Route 4 : /monitor (sert server-monitor.html depuis resources) ---
       Method.GET / "monitor" -> handler {
         ZIO
           .attempt {
