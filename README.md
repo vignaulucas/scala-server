@@ -4,6 +4,13 @@
 
 </div>
 
+## 📷 Interface 
+
+<div align="center">
+<br><img src="assets/server-image.png" alt="ScalaServer" width="900"><br>
+</div>
+
+
 ## 📌 Présentation du projet
 
 Ce projet implémente un **serveur HTTP** complet utilisant :
